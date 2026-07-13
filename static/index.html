@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="上传食材图片，AI 识别食材并搜索、评分和推荐菜谱。">
+  <title>AI 私厨 · 智能菜谱助手</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20260713-1">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">厨</div>
+        <div>
+          <h1>AI 私厨</h1>
+          <p>看懂食材，搜到好菜，为你排好优先级</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="healthBadge" class="health checking"><span></span>服务检查中</span>
+        <button id="clear" class="button ghost" type="button">清空记录</button>
+        <button id="new" class="button secondary" type="button">＋ 新建会话</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="intro-card">
+        <div>
+          <span class="eyebrow">MULTIMODAL RECIPE AGENT</span>
+          <h2>冰箱里有什么，今晚就吃什么</h2>
+          <p>上传一张食材照片，或直接告诉我现有食材、人数、忌口与目标。AI 会识别食材、搜索真实菜谱并综合评分。</p>
+        </div>
+        <div class="feature-list" aria-label="核心能力">
+          <span>◉ 图片识别</span>
+          <span>⌕ Tavily 搜索</span>
+          <span>★ 营养评分</span>
+          <span>↻ 连续追问</span>
+        </div>
+      </section>
+
+      <section class="chat-card" aria-label="AI 私厨对话">
+        <div id="messages" class="messages" aria-live="polite">
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon">🥗</div>
+            <h3>准备好开始做饭了吗？</h3>
+            <p>可以试试：“我有鸡蛋、西红柿和青椒，想做两道低油家常菜。”</p>
+            <div class="suggestions">
+              <button type="button" data-prompt="我有鸡蛋、西红柿和青椒，请推荐两道简单家常菜。">快速家常菜</button>
+              <button type="button" data-prompt="请推荐两道高蛋白、适合减脂期的晚餐。">减脂高蛋白</button>
+              <button type="button" data-prompt="我只有30分钟，请推荐两道快手菜。">30 分钟快手菜</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <div id="imagePreview" class="image-preview hidden">
+            <img id="previewImage" alt="待识别的食材图片">
+            <div>
+              <strong id="previewName">食材图片</strong>
+              <span id="uploadStatus">等待上传</span>
+            </div>
+            <button id="removeImage" type="button" aria-label="移除图片">×</button>
+          </div>
+
+          <textarea id="input" rows="3" maxlength="4000" placeholder="描述现有食材、人数、口味、忌口或营养目标…"></textarea>
+          <div class="composer-footer">
+            <div class="left-actions">
+              <label class="upload-button" for="image">▣ 上传食材图</label>
+              <input id="image" type="file" accept="image/jpeg,image/png,image/webp">
+              <span class="input-hint">支持 JPG / PNG / WebP，最大 8 MB</span>
+            </div>
+            <button id="send" class="button primary" type="button">
+              <span>发送</span><b aria-hidden="true">➜</b>
+            </button>
+          </div>
+          <div id="requestStatus" class="request-status" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>AI 生成内容仅供烹饪参考；涉及过敏、疾病或特殊饮食时，请咨询专业人士。</footer>
+  </div>
+  <script src="/static/app.js?v=20260713-3"></script>
+</body>
+</html>
