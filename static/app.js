@@ -10,6 +10,16 @@ const requestStatus = document.querySelector('#requestStatus');
 const healthBadge = document.querySelector('#healthBadge');
 const clearButton = document.querySelector('#clear');
 
+const knowledgeButton = document.querySelector('#knowledge');
+const knowledgeOverlay = document.querySelector('#knowledgeOverlay');
+const closeKnowledgeButton = document.querySelector('#closeKnowledge');
+const refreshKnowledgeButton = document.querySelector('#refreshKnowledge');
+const knowledgeFile = document.querySelector('#knowledgeFile');
+const knowledgeStatus = document.querySelector('#knowledgeStatus');
+const knowledgeList = document.querySelector('#knowledgeList');
+const knowledgeDocumentCount = document.querySelector('#knowledgeDocumentCount');
+const knowledgeChunkCount = document.querySelector('#knowledgeChunkCount');
+
 const THREAD_KEY = 'ai-private-chef-thread-id';
 let threadId = localStorage.getItem(THREAD_KEY) || crypto.randomUUID();
 let imageUrl = null;
@@ -85,7 +95,7 @@ function addMessage(role, text = '', options = {}) {
 
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
-  avatar.textContent = role === 'user' ? '我' : '厨';
+  avatar.textContent = role === 'user' ? '你' : '厨';
 
   const wrap = document.createElement('div');
   wrap.className = 'message-wrap';
@@ -101,7 +111,33 @@ function addMessage(role, text = '', options = {}) {
   row.append(avatar, wrap);
   messages.appendChild(row);
   messages.scrollTop = messages.scrollHeight;
-  return bubble;
+  return {row, wrap, bubble};
+}
+
+function renderSources(messageWrap, sources) {
+  if (!sources.length) return;
+  let section = messageWrap.querySelector('.message-sources');
+  if (!section) {
+    section = document.createElement('div');
+    section.className = 'message-sources';
+    section.innerHTML = '<strong>检索来源</strong><div class="source-list"></div>';
+    messageWrap.appendChild(section);
+  }
+  const list = section.querySelector('.source-list');
+  list.innerHTML = '';
+  for (const source of sources) {
+    const link = document.createElement('a');
+    link.className = `source-card ${source.source_type === 'knowledge' ? 'local' : 'web'}`;
+    link.href = source.url || '#';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    const type = source.source_type === 'knowledge' ? '知识库' : '网络';
+    const detail = source.source_type === 'knowledge' && source.page
+      ? `第 ${source.page} 页${source.score != null ? ` · 相关度 ${Math.round(source.score * 100)}%` : ''}`
+      : '外部网页';
+    link.innerHTML = `<span>${type}</span><b>${escapeHtml(source.title || '参考资料')}</b><small>${escapeHtml(detail)}</small>`;
+    list.appendChild(link);
+  }
 }
 
 function setRequestStatus(text = '', isError = false) {
@@ -123,9 +159,10 @@ async function checkHealth() {
   try {
     const response = await fetch('/api/health', {cache: 'no-store'});
     const data = await response.json();
-    const ready = response.ok && data.status === 'ok';
+    const ready = response.ok && data.services?.qwen;
     healthBadge.className = `health ${ready ? 'ok' : 'error'}`;
-    healthBadge.innerHTML = `<span></span>${ready ? `服务正常 · ${escapeHtml(data.model)}` : '配置不完整'}`;
+    const ragText = data.services?.rag ? `RAG ${data.knowledge?.documents || 0} 份` : 'RAG 未配置';
+    healthBadge.innerHTML = `<span></span>${ready ? `${escapeHtml(data.model)} · ${ragText}` : '配置不完整'}`;
   } catch (_) {
     healthBadge.className = 'health error';
     healthBadge.innerHTML = '<span></span>服务未连接';
@@ -157,9 +194,9 @@ document.querySelector('#new').addEventListener('click', () => {
   threadId = crypto.randomUUID();
   localStorage.setItem(THREAD_KEY, threadId);
   messages.innerHTML = `
-    <div id="emptyState" class="empty-state">
-      <div class="empty-icon">🥗</div><h3>新会话已经准备好</h3>
-      <p>告诉我你的食材和需求，或者上传一张冰箱照片。</p>
+    <div class="empty-state">
+      <div class="empty-icon">🍳</div><h3>新会话已经准备好</h3>
+      <p>告诉我你的食材和需求，或询问私人知识库中的内容。</p>
     </div>`;
   input.value = '';
   resetImage();
@@ -240,7 +277,7 @@ async function sendMessage() {
   sendButton.querySelector('span').textContent = '生成中';
   input.value = '';
   addMessage('user', requestImageUrl ? `📷 ${text}` : text, {plain: true});
-  const answer = addMessage('assistant', '正在连接 AI 私厨…', {typing: true, plain: true});
+  const answerMessage = addMessage('assistant', '正在连接 AI 私厨…', {typing: true, plain: true});
   setRequestStatus('正在分析需求…');
 
   try {
@@ -257,6 +294,7 @@ async function sendMessage() {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    const sourceMap = new Map();
     let buffer = '';
     let fullText = '';
 
@@ -270,21 +308,28 @@ async function sendMessage() {
         if (!event.startsWith('data: ')) continue;
         const data = JSON.parse(event.slice(6));
         if (data.type === 'status') setRequestStatus(data.message);
+        if (data.type === 'sources') {
+          for (const source of data.sources || []) {
+            const key = `${source.source_type}|${source.url}|${source.document_id}|${source.page}`;
+            sourceMap.set(key, source);
+          }
+          renderSources(answerMessage.wrap, [...sourceMap.values()]);
+        }
         if (data.type === 'text') {
           fullText += data.text;
-          answer.classList.remove('typing');
-          answer.innerHTML = renderMarkdown(fullText);
+          answerMessage.bubble.classList.remove('typing');
+          answerMessage.bubble.innerHTML = renderMarkdown(fullText);
           messages.scrollTop = messages.scrollHeight;
         }
         if (data.type === 'error') throw new Error(data.message);
-        if (data.type === 'done') setRequestStatus('推荐已完成，可以继续追问');
+        if (data.type === 'done') setRequestStatus('回答已完成，可以继续追问');
       }
     }
     if (!fullText) throw new Error('回答已结束，但没有收到文本内容');
     resetImage();
   } catch (error) {
-    answer.classList.remove('typing');
-    answer.textContent = `发送失败：${error.message}`;
+    answerMessage.bubble.classList.remove('typing');
+    answerMessage.bubble.textContent = `发送失败：${error.message}`;
     setRequestStatus(error.message, true);
   } finally {
     sending = false;
@@ -298,6 +343,118 @@ input.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
     sendMessage();
+  }
+});
+
+function formatBytes(value) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function setKnowledgeStatus(text = '', isError = false) {
+  knowledgeStatus.textContent = text;
+  knowledgeStatus.classList.toggle('error', isError);
+}
+
+function renderKnowledgeDocuments(documents) {
+  if (!documents.length) {
+    knowledgeList.innerHTML = '<div class="knowledge-empty">知识库还是空的，先上传一份菜谱或营养资料吧。</div>';
+    return;
+  }
+  knowledgeList.innerHTML = documents.map((document) => `
+    <article class="knowledge-item">
+      <div class="file-icon">${document.file_type.toUpperCase()}</div>
+      <div class="file-info">
+        <a href="/api/knowledge/documents/${encodeURIComponent(document.id)}/download" target="_blank" rel="noopener noreferrer">${escapeHtml(document.filename)}</a>
+        <span>${formatBytes(document.size_bytes)} · ${document.chunk_count} 个片段 · ${escapeHtml(new Date(document.created_at).toLocaleString())}</span>
+      </div>
+      <button type="button" class="delete-document" data-document-id="${escapeHtml(document.id)}" data-filename="${escapeHtml(document.filename)}">删除</button>
+    </article>
+  `).join('');
+}
+
+async function loadKnowledge() {
+  knowledgeList.innerHTML = '<div class="knowledge-empty">正在读取知识库…</div>';
+  try {
+    const response = await fetch('/api/knowledge/documents', {cache: 'no-store'});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || '知识库加载失败');
+    knowledgeDocumentCount.textContent = data.documents?.length || 0;
+    knowledgeChunkCount.textContent = data.chunks || 0;
+    renderKnowledgeDocuments(data.documents || []);
+  } catch (error) {
+    knowledgeList.innerHTML = '<div class="knowledge-empty error">知识库暂时无法加载。</div>';
+    setKnowledgeStatus(error.message, true);
+  }
+}
+
+function openKnowledge() {
+  knowledgeOverlay.classList.remove('hidden');
+  knowledgeOverlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('drawer-open');
+  loadKnowledge();
+}
+
+function closeKnowledge() {
+  knowledgeOverlay.classList.add('hidden');
+  knowledgeOverlay.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('drawer-open');
+}
+
+knowledgeButton.addEventListener('click', openKnowledge);
+closeKnowledgeButton.addEventListener('click', closeKnowledge);
+refreshKnowledgeButton.addEventListener('click', loadKnowledge);
+knowledgeOverlay.addEventListener('click', (event) => {
+  if (event.target === knowledgeOverlay) closeKnowledge();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !knowledgeOverlay.classList.contains('hidden')) closeKnowledge();
+});
+
+knowledgeFile.addEventListener('change', async (event) => {
+  const files = [...event.target.files];
+  if (!files.length) return;
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    if (file.size > 10 * 1024 * 1024) {
+      setKnowledgeStatus(`${file.name} 超过 10 MB，已跳过。`, true);
+      continue;
+    }
+    setKnowledgeStatus(`正在解析并向量化 ${file.name}（${index + 1}/${files.length}）…`);
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const response = await fetch('/api/knowledge/documents', {method: 'POST', body: form});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || '上传失败');
+      const duplicateText = data.duplicate ? '（文件已存在，未重复索引）' : `，生成 ${data.chunk_count} 个知识片段`;
+      setKnowledgeStatus(`${data.filename} 已就绪${duplicateText}`);
+    } catch (error) {
+      setKnowledgeStatus(`${file.name}：${error.message}`, true);
+    }
+  }
+  knowledgeFile.value = '';
+  await loadKnowledge();
+  await checkHealth();
+});
+
+knowledgeList.addEventListener('click', async (event) => {
+  const button = event.target.closest('.delete-document');
+  if (!button) return;
+  const filename = button.dataset.filename;
+  if (!window.confirm(`确定删除“${filename}”及其全部向量吗？`)) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/knowledge/documents/${encodeURIComponent(button.dataset.documentId)}`, {method: 'DELETE'});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || '删除失败');
+    setKnowledgeStatus(`${filename} 已从知识库删除。`);
+    await loadKnowledge();
+    await checkHealth();
+  } catch (error) {
+    setKnowledgeStatus(error.message, true);
+    button.disabled = false;
   }
 });
 

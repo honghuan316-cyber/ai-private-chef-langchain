@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="上传食材图片，AI 识别食材并搜索、评分和推荐菜谱。">
-  <title>AI 私厨 · 智能菜谱助手</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260713-1">
+  <meta name="description" content="上传食材图片，结合私人知识库和网络搜索获得可靠菜谱建议。">
+  <title>AI 私厨 · Agentic RAG 菜谱助手</title>
+  <link rel="stylesheet" href="/static/styles.css?v=20260716-1">
 </head>
 <body>
   <div class="app-shell">
@@ -14,11 +14,12 @@
         <div class="brand-icon" aria-hidden="true">厨</div>
         <div>
           <h1>AI 私厨</h1>
-          <p>看懂食材，搜到好菜，为你排好优先级</p>
+          <p>看懂食材，检索私有资料，再搜索可靠菜谱</p>
         </div>
       </div>
       <div class="header-actions">
         <span id="healthBadge" class="health checking"><span></span>服务检查中</span>
+        <button id="knowledge" class="button ghost" type="button">📚 知识库</button>
         <button id="clear" class="button ghost" type="button">清空记录</button>
         <button id="new" class="button secondary" type="button">＋ 新建会话</button>
       </div>
@@ -27,14 +28,14 @@
     <main class="workspace">
       <section class="intro-card">
         <div>
-          <span class="eyebrow">MULTIMODAL RECIPE AGENT</span>
-          <h2>冰箱里有什么，今晚就吃什么</h2>
-          <p>上传一张食材照片，或直接告诉我现有食材、人数、忌口与目标。AI 会识别食材、搜索真实菜谱并综合评分。</p>
+          <span class="eyebrow">MULTIMODAL AGENTIC RAG</span>
+          <h2>冰箱里有什么，知识库里怎么说，今晚就吃什么</h2>
+          <p>上传食材照片或直接描述需求。AI 会识别食材，按需检索你的私人资料和网络菜谱，再结合营养与难度给出排序结果。</p>
         </div>
         <div class="feature-list" aria-label="核心能力">
           <span>◉ 图片识别</span>
-          <span>⌕ Tavily 搜索</span>
-          <span>★ 营养评分</span>
+          <span>◆ 私有 RAG</span>
+          <span>◎ Tavily 搜索</span>
           <span>↻ 连续追问</span>
         </div>
       </section>
@@ -42,13 +43,13 @@
       <section class="chat-card" aria-label="AI 私厨对话">
         <div id="messages" class="messages" aria-live="polite">
           <div id="emptyState" class="empty-state">
-            <div class="empty-icon">🥗</div>
+            <div class="empty-icon">🍳</div>
             <h3>准备好开始做饭了吗？</h3>
-            <p>可以试试：“我有鸡蛋、西红柿和青椒，想做两道低油家常菜。”</p>
+            <p>你可以上传冰箱照片，也可以先把营养指南或私人菜谱放进知识库。</p>
             <div class="suggestions">
               <button type="button" data-prompt="我有鸡蛋、西红柿和青椒，请推荐两道简单家常菜。">快速家常菜</button>
-              <button type="button" data-prompt="请推荐两道高蛋白、适合减脂期的晚餐。">减脂高蛋白</button>
-              <button type="button" data-prompt="我只有30分钟，请推荐两道快手菜。">30 分钟快手菜</button>
+              <button type="button" data-prompt="根据我的知识库资料，推荐两道适合减脂期的晚餐。">根据知识库减脂</button>
+              <button type="button" data-prompt="请结合我的营养资料和网络菜谱，推荐两道高蛋白晚餐。">RAG + 网络搜索</button>
             </div>
           </div>
         </div>
@@ -63,12 +64,12 @@
             <button id="removeImage" type="button" aria-label="移除图片">×</button>
           </div>
 
-          <textarea id="input" rows="3" maxlength="4000" placeholder="描述现有食材、人数、口味、忌口或营养目标…"></textarea>
+          <textarea id="input" rows="3" maxlength="4000" placeholder="描述食材、人数、口味、忌口，或询问知识库中的内容…"></textarea>
           <div class="composer-footer">
             <div class="left-actions">
               <label class="upload-button" for="image">▣ 上传食材图</label>
               <input id="image" type="file" accept="image/jpeg,image/png,image/webp">
-              <span class="input-hint">支持 JPG / PNG / WebP，最大 8 MB</span>
+              <span class="input-hint">JPG / PNG / WebP，最大 8 MB</span>
             </div>
             <button id="send" class="button primary" type="button">
               <span>发送</span><b aria-hidden="true">➜</b>
@@ -79,8 +80,42 @@
       </section>
     </main>
 
-    <footer>AI 生成内容仅供烹饪参考；涉及过敏、疾病或特殊饮食时，请咨询专业人士。</footer>
+    <footer>AI 内容仅供烹饪参考；涉及过敏、疾病或特殊饮食时，请咨询专业人士。</footer>
   </div>
-  <script src="/static/app.js?v=20260713-3"></script>
+
+  <div id="knowledgeOverlay" class="drawer-overlay hidden" aria-hidden="true">
+    <aside class="knowledge-drawer" role="dialog" aria-modal="true" aria-labelledby="knowledgeTitle">
+      <div class="drawer-header">
+        <div>
+          <span class="eyebrow dark">PRIVATE KNOWLEDGE BASE</span>
+          <h2 id="knowledgeTitle">私人烹饪知识库</h2>
+          <p>上传资料后，Agent 可以按问题自主检索并标注页码。</p>
+        </div>
+        <button id="closeKnowledge" class="drawer-close" type="button" aria-label="关闭知识库">×</button>
+      </div>
+
+      <div class="knowledge-summary">
+        <div><strong id="knowledgeDocumentCount">0</strong><span>份文档</span></div>
+        <div><strong id="knowledgeChunkCount">0</strong><span>个知识片段</span></div>
+      </div>
+
+      <label class="knowledge-upload" for="knowledgeFile">
+        <span>＋ 上传知识资料</span>
+        <small>支持 PDF、TXT、Markdown，单文件最大 10 MB</small>
+      </label>
+      <input id="knowledgeFile" type="file" multiple accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown">
+      <div id="knowledgeStatus" class="knowledge-status" aria-live="polite"></div>
+
+      <div class="knowledge-section-title">
+        <h3>已索引文档</h3>
+        <button id="refreshKnowledge" type="button">刷新</button>
+      </div>
+      <div id="knowledgeList" class="knowledge-list">
+        <div class="knowledge-empty">正在读取知识库…</div>
+      </div>
+    </aside>
+  </div>
+
+  <script src="/static/app.js?v=20260716-1"></script>
 </body>
 </html>
