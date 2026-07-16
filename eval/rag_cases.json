@@ -1,0 +1,18 @@
+[
+  {"id":"nutrition-01","query":"减脂晚餐是不是必须完全不吃主食？","expected_source":"家庭营养搭配示例.md","expected_keywords":["不等于完全不吃主食"],"expected_tool":"knowledge"},
+  {"id":"nutrition-02","query":"减脂晚餐适合哪些烹饪方式？","expected_source":"家庭营养搭配示例.md","expected_keywords":["蒸","煮","少油炒"],"expected_tool":"knowledge"},
+  {"id":"nutrition-03","query":"家庭做饭有哪些常见优质蛋白来源？","expected_source":"家庭营养搭配示例.md","expected_keywords":["鸡蛋","鱼虾","豆腐"],"expected_tool":"knowledge"},
+  {"id":"nutrition-04","query":"做饭时怎样减少盐和油？","expected_source":"家庭营养搭配示例.md","expected_keywords":["酱油","天然香辛料"],"expected_tool":"knowledge"},
+  {"id":"nutrition-05","query":"日常正餐应包含哪些食物类别？","expected_source":"家庭营养搭配示例.md","expected_keywords":["谷薯类","蔬菜","优质蛋白"],"expected_tool":"knowledge"},
+  {"id":"nutrition-06","query":"给我一个杂粮饭搭配的减脂晚餐例子","expected_source":"家庭营养搭配示例.md","expected_keywords":["杂粮饭","清蒸鱼"],"expected_tool":"knowledge"},
+  {"id":"safety-01","query":"处理生肉以后怎样避免交叉污染？","expected_source":"食品安全与过敏提醒.md","expected_keywords":["清洁双手","生熟"],"expected_tool":"knowledge"},
+  {"id":"safety-02","query":"为什么肉类不能只看表面颜色判断熟没熟？","expected_source":"食品安全与过敏提醒.md","expected_keywords":["内部","充分加热"],"expected_tool":"knowledge"},
+  {"id":"safety-03","query":"剩菜出现哪些情况应该丢掉？","expected_source":"食品安全与过敏提醒.md","expected_keywords":["异味","霉变","包装鼓起"],"expected_tool":"knowledge"},
+  {"id":"safety-04","query":"常见的食物过敏原有哪些？","expected_source":"食品安全与过敏提醒.md","expected_keywords":["花生","小麦","甲壳类"],"expected_tool":"knowledge"},
+  {"id":"safety-05","query":"为过敏人群做饭只去掉对应食材就够了吗？","expected_source":"食品安全与过敏提醒.md","expected_keywords":["配料表","交叉接触"],"expected_tool":"knowledge"},
+  {"id":"safety-06","query":"哪些人群需要更谨慎对待生食和未熟鸡蛋？","expected_source":"食品安全与过敏提醒.md","expected_keywords":["孕妇","婴幼儿","老年人"],"expected_tool":"knowledge"},
+  {"id":"route-01","query":"根据我的营养资料，再从网上找两道最新的高蛋白菜谱","expected_source":"家庭营养搭配示例.md","expected_keywords":["优质蛋白"],"expected_tool":"both"},
+  {"id":"route-02","query":"请搜索网络上最新的番茄鸡蛋做法并给出链接","expected_source":null,"expected_keywords":[],"expected_tool":"web"},
+  {"id":"route-03","query":"你好，今天心情怎么样？","expected_source":null,"expected_keywords":[],"expected_tool":"none"}
+]
+
