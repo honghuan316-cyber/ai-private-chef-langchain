@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 data/*.sqlite
 data/*.sqlite-*
+data/chroma/
+data/knowledge_files/
 uploads/*
 !uploads/.gitkeep
 data/*.log

@@ -5,8 +5,11 @@ python-multipart
 langchain
 langchain-openai
 langchain-tavily
+langchain-chroma
+langchain-text-splitters
 langgraph
 langgraph-checkpoint-sqlite
 httpx
 oss2
+pypdf
 pytest
