@@ -70,6 +70,14 @@
               <label class="upload-button" for="image">▣ 上传食材图</label>
               <input id="image" type="file" accept="image/jpeg,image/png,image/webp">
               <span class="input-hint">JPG / PNG / WebP，最大 8 MB</span>
+              <label class="source-mode" for="sourceMode">
+                <span>检索策略</span>
+                <select id="sourceMode">
+                  <option value="auto">自动</option>
+                  <option value="knowledge">强制知识库</option>
+                  <option value="web">强制联网</option>
+                </select>
+              </label>
             </div>
             <button id="send" class="button primary" type="button">
               <span>发送</span><b aria-hidden="true">➜</b>

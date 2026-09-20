@@ -23,7 +23,7 @@ from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from app.knowledge import KnowledgeService
+from app.knowledge import KnowledgeService, KnowledgeUnavailableError
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -189,19 +189,36 @@ class PolicyRoutedAgent:
                 content = message.get("content", "")
                 if isinstance(content, str):
                     return content
+                if isinstance(content, list):
+                    return "\n".join(
+                        str(block.get("text", ""))
+                        for block in content
+                        if isinstance(block, dict) and block.get("type") == "text"
+                    ).strip()
         return ""
 
-    def _required_tools(self, query: str) -> list[str]:
-        required = []
-        if any(keyword in query for keyword in KNOWLEDGE_ROUTE_KEYWORDS):
-            required.append("search_private_knowledge")
-        if any(keyword in query for keyword in WEB_ROUTE_KEYWORDS):
-            required.append("search_web_recipes")
+    def _required_tools(self, query: str, source_mode: str = "auto") -> list[str]:
+        if source_mode == "knowledge":
+            if "search_private_knowledge" not in self.tools:
+                raise KnowledgeUnavailableError("私人知识库暂不可用，请检查 Embedding 配置。")
+            required = ["search_private_knowledge"]
+        elif source_mode == "web":
+            if "search_web_recipes" not in self.tools:
+                raise RuntimeError("Tavily 网络搜索暂不可用。")
+            required = ["search_web_recipes"]
+        else:
+            required = []
+            if any(keyword in query for keyword in KNOWLEDGE_ROUTE_KEYWORDS):
+                required.append("search_private_knowledge")
+            if any(keyword in query for keyword in WEB_ROUTE_KEYWORDS):
+                required.append("search_web_recipes")
         return [name for name in required if name in self.tools]
 
-    def _prepare(self, agent_input: dict[str, Any]) -> tuple[dict[str, Any], list[ToolMessage]]:
+    def _prepare(
+        self, agent_input: dict[str, Any], source_mode: str = "auto"
+    ) -> tuple[dict[str, Any], list[ToolMessage]]:
         query = self._query_from_input(agent_input)
-        required = self._required_tools(query)
+        required = self._required_tools(query, source_mode)
         if not required:
             return agent_input, []
 
@@ -235,12 +252,12 @@ class PolicyRoutedAgent:
         ]
         return prepared, tool_messages
 
-    def invoke(self, agent_input: dict[str, Any], *args, **kwargs):
-        prepared, _ = self._prepare(agent_input)
+    def invoke(self, agent_input: dict[str, Any], *args, source_mode="auto", **kwargs):
+        prepared, _ = self._prepare(agent_input, source_mode)
         return self.graph.invoke(prepared, *args, **kwargs)
 
-    def stream(self, agent_input: dict[str, Any], *args, **kwargs):
-        prepared, tool_messages = self._prepare(agent_input)
+    def stream(self, agent_input: dict[str, Any], *args, source_mode="auto", **kwargs):
+        prepared, tool_messages = self._prepare(agent_input, source_mode)
         if kwargs.get("stream_mode") == "messages":
             for message in tool_messages:
                 yield message, {"langgraph_node": "policy_router"}

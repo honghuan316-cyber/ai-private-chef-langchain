@@ -24,7 +24,7 @@ body {
     radial-gradient(circle at 95% 10%, rgba(245, 184, 91, .17), transparent 25%),
     #f6f8f5;
 }
-button, textarea, input { font: inherit; }
+button, textarea, input, select { font: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
 
 .app-shell { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
@@ -130,11 +130,14 @@ button { -webkit-tap-highlight-color: transparent; }
 .composer textarea { width: 100%; min-height: 78px; max-height: 180px; resize: vertical; border: 1px solid #d9e3dc; border-radius: 14px; padding: 13px 14px; outline: none; color: var(--ink); background: white; line-height: 1.5; }
 .composer textarea:focus { border-color: #76aa8d; box-shadow: 0 0 0 4px rgba(63, 144, 96, .1); }
 .composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 10px; }
-.left-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.left-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; }
 #image { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .upload-button { padding: 8px 10px; border-radius: 9px; color: #466258; background: #eef3ef; font-size: 13px; font-weight: 700; cursor: pointer; }
 .upload-button:hover { color: var(--green); background: #e2efe7; }
 .input-hint { overflow: hidden; color: #8a9891; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.source-mode { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+.source-mode select { padding: 7px 9px; color: #466258; border: 1px solid var(--line); border-radius: 9px; outline: none; background: white; cursor: pointer; }
+.source-mode select:focus { border-color: #76aa8d; box-shadow: 0 0 0 3px rgba(63, 144, 96, .1); }
 .image-preview { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; padding: 8px; border: 1px solid #dce8df; border-radius: 12px; background: #f1f7f3; }
 .image-preview.hidden { display: none; }
 .image-preview img { width: 58px; height: 58px; object-fit: cover; border-radius: 9px; background: white; }

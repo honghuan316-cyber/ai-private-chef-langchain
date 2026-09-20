@@ -120,6 +120,8 @@ http://127.0.0.1:8000/
 
 SSE 事件类型包括：`status`、`text`、`sources`、`done` 和 `error`。`sources` 只包含前端展示需要的文档名、页码、相关度与链接，不包含工具原始 JSON。
 
+聊天请求可选传入 `source_mode`：`auto`（默认）沿用 Agent 自动路由，`knowledge` 强制检索一次私人知识库，`web` 强制执行一次网络搜索。
+
 ## 测试与评测
 
 运行自动化测试：

@@ -9,6 +9,7 @@ import re
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
@@ -76,6 +77,7 @@ class ChatRequest(BaseModel):
     message: str = Field(default="", max_length=4000)
     image_url: str | None = Field(default=None, max_length=5000)
     thread_id: str = Field(min_length=1, max_length=100)
+    source_mode: Literal["auto", "knowledge", "web"] = "auto"
 
     @field_validator("message")
     @classmethod
@@ -338,6 +340,7 @@ def chat(request_body: ChatRequest, request: Request):
         result = runtime.agent.invoke(
             {"messages": [make_message(request_body)]},
             config=make_config(request_body.thread_id),
+            source_mode=request_body.source_mode,
         )
         return {
             "thread_id": request_body.thread_id,
@@ -383,6 +386,7 @@ def chat_stream(request_body: ChatRequest, request: Request):
                 {"messages": [user_message]},
                 config=make_config(request_body.thread_id),
                 stream_mode="messages",
+                source_mode=request_body.source_mode,
             ):
                 if isinstance(chunk, ToolMessage):
                     sources = _new_sources(getattr(chunk, "artifact", None), seen_sources)

@@ -1,6 +1,7 @@
 const messages = document.querySelector('#messages');
 const input = document.querySelector('#input');
 const sendButton = document.querySelector('#send');
+const sourceMode = document.querySelector('#sourceMode');
 const imageInput = document.querySelector('#image');
 const imagePreview = document.querySelector('#imagePreview');
 const previewImage = document.querySelector('#previewImage');
@@ -284,7 +285,12 @@ async function sendMessage() {
     const response = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: text, image_url: requestImageUrl, thread_id: threadId}),
+      body: JSON.stringify({
+        message: text,
+        image_url: requestImageUrl,
+        thread_id: threadId,
+        source_mode: sourceMode.value,
+      }),
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
