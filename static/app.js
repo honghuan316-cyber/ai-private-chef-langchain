@@ -11,6 +11,12 @@ const requestStatus = document.querySelector('#requestStatus');
 const healthBadge = document.querySelector('#healthBadge');
 const clearButton = document.querySelector('#clear');
 
+const historyButton = document.querySelector('#history');
+const historyOverlay = document.querySelector('#historyOverlay');
+const closeHistoryButton = document.querySelector('#closeHistory');
+const historySearch = document.querySelector('#historySearch');
+const historyList = document.querySelector('#historyList');
+
 const knowledgeButton = document.querySelector('#knowledge');
 const knowledgeOverlay = document.querySelector('#knowledgeOverlay');
 const closeKnowledgeButton = document.querySelector('#closeKnowledge');
@@ -32,6 +38,7 @@ let imageUrl = null;
 let previewObjectUrl = null;
 let sending = false;
 let uploading = false;
+let conversationItems = [];
 localStorage.setItem(THREAD_KEY, threadId);
 
 function escapeHtml(value) {
@@ -92,6 +99,15 @@ function renderMarkdown(markdown) {
 function hideEmptyState() {
   const state = messages.querySelector('.empty-state');
   if (state) state.remove();
+}
+
+function showEmptyState(title, description, icon = '🍳') {
+  messages.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">${escapeHtml(icon)}</div>
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(description)}</p>
+    </div>`;
 }
 
 function addMessage(role, text = '', options = {}) {
@@ -176,16 +192,86 @@ async function checkHealth() {
 }
 
 async function loadHistory() {
+  const requestedThreadId = threadId;
   try {
-    const response = await fetch(`/api/history/${encodeURIComponent(threadId)}`, {cache: 'no-store'});
+    const response = await fetch(`/api/history/${encodeURIComponent(requestedThreadId)}`, {cache: 'no-store'});
     if (!response.ok) return;
     const data = await response.json();
-    if (!data.messages?.length) return;
+    if (requestedThreadId !== threadId) return;
+    if (!data.messages?.length) {
+      showEmptyState('新会话已经准备好', '告诉我你的食材和需求，或询问私人知识库中的内容。');
+      return;
+    }
     messages.innerHTML = '';
     for (const item of data.messages) addMessage(item.role, item.content);
     setRequestStatus(`已恢复 ${data.messages.length} 条历史消息`);
   } catch (_) {
     setRequestStatus('历史记录暂时无法加载', true);
+  }
+}
+
+function formatConversationTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('zh-CN', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function renderConversations() {
+  const keyword = historySearch.value.trim().toLowerCase();
+  const filtered = conversationItems.filter((item) => item.title.toLowerCase().includes(keyword));
+  if (!filtered.length) {
+    historyList.innerHTML = `<div class="knowledge-empty">${keyword ? '没有找到匹配的对话。' : '还没有可恢复的对话。'}</div>`;
+    return;
+  }
+  historyList.innerHTML = filtered.map((item) => `
+    <button class="history-item${item.thread_id === threadId ? ' active' : ''}" type="button" data-thread-id="${escapeHtml(item.thread_id)}">
+      <strong>${escapeHtml(item.title)}</strong>
+      <span>${escapeHtml(formatConversationTime(item.updated_at))} · ${item.message_count} 条消息</span>
+    </button>
+  `).join('');
+}
+
+async function loadConversations() {
+  historyList.innerHTML = '<div class="knowledge-empty">正在读取历史对话…</div>';
+  try {
+    const response = await fetch('/api/conversations', {cache: 'no-store'});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || '历史对话加载失败');
+    conversationItems = data.conversations || [];
+    renderConversations();
+  } catch (error) {
+    historyList.innerHTML = `<div class="knowledge-empty error">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function syncDrawerState() {
+  const drawerOpen = !historyOverlay.classList.contains('hidden')
+    || !knowledgeOverlay.classList.contains('hidden');
+  document.body.classList.toggle('drawer-open', drawerOpen);
+}
+
+function openHistory() {
+  historyOverlay.classList.remove('hidden');
+  historyOverlay.setAttribute('aria-hidden', 'false');
+  syncDrawerState();
+  historySearch.value = '';
+  loadConversations();
+  historySearch.focus();
+}
+
+function closeHistory() {
+  historyOverlay.classList.add('hidden');
+  historyOverlay.setAttribute('aria-hidden', 'true');
+  syncDrawerState();
+}
+
+async function requestConversationTitle(targetThreadId) {
+  try {
+    await fetch(`/api/conversations/${encodeURIComponent(targetThreadId)}/title`, {method: 'POST'});
+  } catch (_) {
+    // The history list can always fall back to the first user message.
   }
 }
 
@@ -197,13 +283,13 @@ document.querySelectorAll('[data-prompt]').forEach((button) => {
 });
 
 document.querySelector('#new').addEventListener('click', () => {
+  if (sending || uploading) {
+    setRequestStatus('请等待当前操作完成后再新建会话', true);
+    return;
+  }
   threadId = crypto.randomUUID();
   localStorage.setItem(THREAD_KEY, threadId);
-  messages.innerHTML = `
-    <div class="empty-state">
-      <div class="empty-icon">🍳</div><h3>新会话已经准备好</h3>
-      <p>告诉我你的食材和需求，或询问私人知识库中的内容。</p>
-    </div>`;
+  showEmptyState('新会话已经准备好', '告诉我你的食材和需求，或询问私人知识库中的内容。');
   input.value = '';
   resetImage();
   setRequestStatus('已创建新会话');
@@ -217,7 +303,7 @@ clearButton.addEventListener('click', async () => {
     if (!response.ok) throw new Error('清空失败');
     threadId = crypto.randomUUID();
     localStorage.setItem(THREAD_KEY, threadId);
-    messages.innerHTML = '<div class="empty-state"><div class="empty-icon">✓</div><h3>记录已清空</h3><p>可以开始一段新的美食对话。</p></div>';
+    showEmptyState('记录已清空', '可以开始一段新的美食对话。', '✓');
     resetImage();
     setRequestStatus('当前会话历史已删除');
   } catch (error) {
@@ -279,6 +365,7 @@ async function sendMessage() {
 
   const requestImageUrl = imageUrl;
   const selectedSourceMode = sourceMode.value;
+  const requestThreadId = threadId;
   sending = true;
   sendButton.disabled = true;
   sendButton.querySelector('span').textContent = '生成中';
@@ -294,7 +381,7 @@ async function sendMessage() {
       body: JSON.stringify({
         message: text,
         image_url: requestImageUrl,
-        thread_id: threadId,
+        thread_id: requestThreadId,
         source_mode: selectedSourceMode,
       }),
     });
@@ -339,6 +426,7 @@ async function sendMessage() {
     }
     if (!fullText) throw new Error('回答已结束，但没有收到文本内容');
     resetImage();
+    requestConversationTitle(requestThreadId);
   } catch (error) {
     answerMessage.bubble.classList.remove('typing');
     answerMessage.bubble.textContent = `发送失败：${error.message}`;
@@ -404,15 +492,37 @@ async function loadKnowledge() {
 function openKnowledge() {
   knowledgeOverlay.classList.remove('hidden');
   knowledgeOverlay.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('drawer-open');
+  syncDrawerState();
   loadKnowledge();
 }
 
 function closeKnowledge() {
   knowledgeOverlay.classList.add('hidden');
   knowledgeOverlay.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('drawer-open');
+  syncDrawerState();
 }
+
+historyButton.addEventListener('click', openHistory);
+closeHistoryButton.addEventListener('click', closeHistory);
+historySearch.addEventListener('input', renderConversations);
+historyOverlay.addEventListener('click', (event) => {
+  if (event.target === historyOverlay) closeHistory();
+});
+historyList.addEventListener('click', async (event) => {
+  const button = event.target.closest('.history-item');
+  if (!button) return;
+  if (sending || uploading) {
+    setRequestStatus('请等待当前操作完成后再切换对话', true);
+    closeHistory();
+    return;
+  }
+  threadId = button.dataset.threadId;
+  localStorage.setItem(THREAD_KEY, threadId);
+  closeHistory();
+  resetImage();
+  await loadHistory();
+  input.focus();
+});
 
 knowledgeButton.addEventListener('click', openKnowledge);
 closeKnowledgeButton.addEventListener('click', closeKnowledge);
@@ -421,6 +531,7 @@ knowledgeOverlay.addEventListener('click', (event) => {
   if (event.target === knowledgeOverlay) closeKnowledge();
 });
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !historyOverlay.classList.contains('hidden')) closeHistory();
   if (event.key === 'Escape' && !knowledgeOverlay.classList.contains('hidden')) closeKnowledge();
 });
 

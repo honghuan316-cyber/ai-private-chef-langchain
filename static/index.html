@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="上传食材图片，结合私人知识库和网络搜索获得可靠菜谱建议。">
   <title>AI 私厨 · Agentic RAG 菜谱助手</title>
-  <link rel="stylesheet" href="/static/styles.css?v=20260716-1">
+  <link rel="stylesheet" href="/static/styles.css?v=20260920-1">
 </head>
 <body>
   <div class="app-shell">
@@ -19,6 +19,7 @@
       </div>
       <div class="header-actions">
         <span id="healthBadge" class="health checking"><span></span>服务检查中</span>
+        <button id="history" class="button ghost" type="button">🕘 历史对话</button>
         <button id="knowledge" class="button ghost" type="button">📚 知识库</button>
         <button id="clear" class="button ghost" type="button">清空记录</button>
         <button id="new" class="button secondary" type="button">＋ 新建会话</button>
@@ -91,6 +92,27 @@
     <footer>AI 内容仅供烹饪参考；涉及过敏、疾病或特殊饮食时，请咨询专业人士。</footer>
   </div>
 
+  <div id="historyOverlay" class="drawer-overlay hidden" aria-hidden="true">
+    <aside class="knowledge-drawer history-drawer" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+      <div class="drawer-header">
+        <div>
+          <span class="eyebrow dark">CONVERSATION HISTORY</span>
+          <h2 id="historyTitle">历史对话</h2>
+          <p>搜索标题并切换到之前的对话，原有上下文会继续保留。</p>
+        </div>
+        <button id="closeHistory" class="drawer-close" type="button" aria-label="关闭历史对话">×</button>
+      </div>
+
+      <label class="history-search">
+        <span class="visually-hidden">搜索对话标题</span>
+        <input id="historySearch" type="search" placeholder="搜索对话标题…" autocomplete="off">
+      </label>
+      <div id="historyList" class="history-list">
+        <div class="knowledge-empty">正在读取历史对话…</div>
+      </div>
+    </aside>
+  </div>
+
   <div id="knowledgeOverlay" class="drawer-overlay hidden" aria-hidden="true">
     <aside class="knowledge-drawer" role="dialog" aria-modal="true" aria-labelledby="knowledgeTitle">
       <div class="drawer-header">
@@ -124,6 +146,6 @@
     </aside>
   </div>
 
-  <script src="/static/app.js?v=20260716-1"></script>
+  <script src="/static/app.js?v=20260920-1"></script>
 </body>
 </html>
