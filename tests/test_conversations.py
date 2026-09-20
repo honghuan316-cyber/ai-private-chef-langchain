@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
+import pytest
+from fastapi import HTTPException
 from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import ValidationError
 
 from app.chef_core import ChefRuntime
 from app.conversations import (
@@ -8,6 +11,7 @@ from app.conversations import (
     clean_generated_title,
     conversation_summaries,
 )
+from app.main import ConversationTitleRequest, rename_conversation_title
 
 
 class FakeCheckpointer:
@@ -111,3 +115,66 @@ def test_runtime_generates_title_without_running_agent():
 
     assert title == "冰箱鸡蛋快手午餐"
     assert len(runtime.model.messages) == 2
+
+
+def test_rename_conversation_title_updates_existing_title(tmp_path):
+    thread_id = "44444444-4444-4444-8444-444444444444"
+    store = ConversationStore(tmp_path / "conversations.sqlite")
+
+    class FakeAgent:
+        def get_state(self, _config):
+            return SimpleNamespace(values={"messages": [HumanMessage("午餐推荐")]})
+
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                runtime=SimpleNamespace(ready=True, agent=FakeAgent()),
+                conversations=store,
+            )
+        )
+    )
+
+    try:
+        result = rename_conversation_title(
+            thread_id, ConversationTitleRequest(title="  鸡蛋减脂午餐  "), request
+        )
+        saved_title = store.get_title(thread_id)
+    finally:
+        store.close()
+
+    assert result == {"thread_id": thread_id, "title": "鸡蛋减脂午餐"}
+    assert saved_title == "鸡蛋减脂午餐"
+
+
+def test_rename_conversation_title_rejects_blank_title():
+    with pytest.raises(ValidationError):
+        ConversationTitleRequest(title="   ")
+
+
+def test_rename_conversation_title_rejects_missing_conversation(tmp_path):
+    store = ConversationStore(tmp_path / "conversations.sqlite")
+
+    class EmptyAgent:
+        def get_state(self, _config):
+            return SimpleNamespace(values={"messages": []})
+
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                runtime=SimpleNamespace(ready=True, agent=EmptyAgent()),
+                conversations=store,
+            )
+        )
+    )
+
+    try:
+        with pytest.raises(HTTPException) as exc_info:
+            rename_conversation_title(
+                "55555555-5555-4555-8555-555555555555",
+                ConversationTitleRequest(title="新标题"),
+                request,
+            )
+    finally:
+        store.close()
+
+    assert exc_info.value.status_code == 404

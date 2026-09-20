@@ -166,11 +166,15 @@ footer { padding: 18px 0 26px; text-align: center; color: #8a9690; font-size: 11
 .history-search input { width: 100%; padding: 12px 14px; color: var(--ink); border: 1px solid var(--line); border-radius: 12px; outline: none; background: white; }
 .history-search input:focus { border-color: #76aa8d; box-shadow: 0 0 0 4px rgba(63, 144, 96, .1); }
 .history-list { display: grid; gap: 8px; }
-.history-item { display: flex; width: 100%; flex-direction: column; gap: 6px; padding: 14px; color: var(--ink); border: 1px solid var(--line); border-radius: 13px; text-align: left; background: white; cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+.history-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; padding: 7px; color: var(--ink); border: 1px solid var(--line); border-radius: 13px; background: white; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
 .history-item:hover { transform: translateY(-1px); border-color: #9fc3ac; background: #f6faf7; }
 .history-item.active { border-color: #67a27e; background: #edf7f0; box-shadow: inset 3px 0 var(--green); }
-.history-item strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.history-item span { color: var(--muted); font-size: 11px; }
+.history-open { display: flex; min-width: 0; flex-direction: column; gap: 6px; padding: 7px; color: var(--ink); border: 0; text-align: left; background: transparent; cursor: pointer; }
+.history-open strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.history-open span { color: var(--muted); font-size: 11px; }
+.rename-conversation { padding: 7px 8px; color: var(--green); border: 0; border-radius: 8px; background: #e8f3eb; cursor: pointer; font-size: 11px; }
+.rename-conversation:hover { background: #dbeee1; }
+.rename-conversation:disabled { opacity: .5; cursor: wait; }
 .drawer-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .drawer-header h2 { margin: 7px 0 6px; font-size: 25px; }
 .drawer-header p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }

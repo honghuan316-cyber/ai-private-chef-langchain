@@ -226,10 +226,13 @@ function renderConversations() {
     return;
   }
   historyList.innerHTML = filtered.map((item) => `
-    <button class="history-item${item.thread_id === threadId ? ' active' : ''}" type="button" data-thread-id="${escapeHtml(item.thread_id)}">
-      <strong>${escapeHtml(item.title)}</strong>
-      <span>${escapeHtml(formatConversationTime(item.updated_at))} · ${item.message_count} 条消息</span>
-    </button>
+    <article class="history-item${item.thread_id === threadId ? ' active' : ''}">
+      <button class="history-open" type="button" data-thread-id="${escapeHtml(item.thread_id)}">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(formatConversationTime(item.updated_at))} · ${item.message_count} 条消息</span>
+      </button>
+      <button class="rename-conversation" type="button" data-thread-id="${escapeHtml(item.thread_id)}" aria-label="重命名对话“${escapeHtml(item.title)}”">重命名</button>
+    </article>
   `).join('');
 }
 
@@ -509,7 +512,36 @@ historyOverlay.addEventListener('click', (event) => {
   if (event.target === historyOverlay) closeHistory();
 });
 historyList.addEventListener('click', async (event) => {
-  const button = event.target.closest('.history-item');
+  const renameButton = event.target.closest('.rename-conversation');
+  if (renameButton) {
+    const item = conversationItems.find((candidate) => candidate.thread_id === renameButton.dataset.threadId);
+    if (!item) return;
+    const value = window.prompt('请输入新的对话标题（最多 40 个字）', item.title);
+    if (value === null) return;
+    const title = value.trim();
+    if (!title || title.length > 40) {
+      window.alert('标题需要为 1—40 个字。');
+      return;
+    }
+    renameButton.disabled = true;
+    try {
+      const response = await fetch(`/api/conversations/${encodeURIComponent(item.thread_id)}/title`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : '重命名失败');
+      item.title = data.title;
+      renderConversations();
+    } catch (error) {
+      renameButton.disabled = false;
+      window.alert(error.message);
+    }
+    return;
+  }
+
+  const button = event.target.closest('.history-open');
   if (!button) return;
   if (sending || uploading) {
     setRequestStatus('请等待当前操作完成后再切换对话', true);

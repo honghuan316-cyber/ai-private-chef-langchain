@@ -114,6 +114,18 @@ class KnowledgeSearchRequest(BaseModel):
         return value
 
 
+class ConversationTitleRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=40)
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("对话标题不能为空")
+        return value
+
+
 def get_knowledge(request: Request) -> KnowledgeService:
     knowledge = getattr(request.app.state, "knowledge", None)
     if knowledge is None:
@@ -491,6 +503,22 @@ async def create_conversation_title(thread_id: str, request: Request):
         generated = False
     store.save_title(thread_id, title)
     return {"thread_id": thread_id, "title": title, "generated": generated}
+
+
+@app.put("/api/conversations/{thread_id}/title")
+def rename_conversation_title(
+    thread_id: str, request_body: ConversationTitleRequest, request: Request
+):
+    if not THREAD_ID_PATTERN.fullmatch(thread_id):
+        raise HTTPException(status_code=422, detail="无效的会话编号。")
+    runtime = get_runtime(request)
+    state = runtime.agent.get_state(make_config(thread_id))
+    if not public_messages(state.values.get("messages", [])):
+        raise HTTPException(status_code=404, detail="对话不存在或已被删除。")
+
+    store = get_conversation_store(request)
+    store.save_title(thread_id, request_body.title)
+    return {"thread_id": thread_id, "title": request_body.title}
 
 
 @app.get("/api/history/{thread_id}")
