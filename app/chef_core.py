@@ -17,13 +17,14 @@ from langchain.agents.middleware import (
     ModelRequest,
     ModelResponse,
 )
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from app.knowledge import KnowledgeService, KnowledgeUnavailableError
+from app.conversations import clean_generated_title
 
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -73,6 +74,12 @@ SYSTEM_PROMPT = """
 
 最后增加“## 私厨建议”，给出替换食材、忌口或减脂方面的一条实用建议。
 默认推荐 2 道菜；用户指定数量时按用户要求。全程使用简体中文。
+""".strip()
+
+TITLE_PROMPT = """
+你负责为 AI 私厨的对话生成简短标题。
+请概括用户的具体需求和回答的关键结果，优先体现食材、场景或饮食目标。
+只输出一个 8—16 个中文字左右的标题，不要引号、句号、“标题”前缀或其他解释。
 """.strip()
 
 
@@ -366,6 +373,7 @@ class ChefRuntime:
         self.root = Path(root)
         self.knowledge = knowledge
         self.agent = None
+        self.model = None
         self.checkpointer = None
         self.initialization_error: str | None = None
         self._checkpointer_context = None
@@ -388,6 +396,7 @@ class ChefRuntime:
                 max_retries=2,
                 streaming=True,
             )
+            self.model = model
             tools = []
             if knowledge.ready:
                 tools.append(create_knowledge_tool(knowledge))
@@ -413,6 +422,25 @@ class ChefRuntime:
     @property
     def ready(self) -> bool:
         return self.agent is not None
+
+    def generate_conversation_title(self, user_text: str, assistant_text: str) -> str:
+        if self.model is None:
+            raise RuntimeError("AI 模型尚未就绪。")
+        response = self.model.invoke(
+            [
+                SystemMessage(content=TITLE_PROMPT),
+                HumanMessage(
+                    content=(
+                        f"用户问题：{user_text[:1200]}\n\n"
+                        f"AI 回答：{assistant_text[:1800]}"
+                    )
+                ),
+            ]
+        )
+        title = clean_generated_title(getattr(response, "content", ""))
+        if not title:
+            raise RuntimeError("模型未返回有效标题。")
+        return title
 
     def close(self) -> None:
         if self._checkpointer_context is not None:

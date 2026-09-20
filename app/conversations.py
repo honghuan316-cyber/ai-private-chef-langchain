@@ -98,6 +98,18 @@ def fallback_title(messages: list[dict[str, str]]) -> str:
     return "新对话"
 
 
+def clean_generated_title(content: Any) -> str:
+    """Normalize a model-produced title for compact list display."""
+    text = _content_to_text(content)
+    if not text:
+        return ""
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    first_line = re.sub(r"^(?:#+\s*)?(?:标题\s*[:：]\s*)?", "", first_line)
+    first_line = first_line.strip(" \t\r\n`“”「」『』\"'")
+    first_line = re.sub(r"\s+", " ", first_line)
+    return first_line.rstrip("。！？!?;；")[:24]
+
+
 def _is_browser_thread(thread_id: str) -> bool:
     try:
         return str(UUID(thread_id)) == thread_id.lower()

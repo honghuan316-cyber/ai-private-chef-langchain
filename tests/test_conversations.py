@@ -2,7 +2,12 @@ from types import SimpleNamespace
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.conversations import ConversationStore, conversation_summaries
+from app.chef_core import ChefRuntime
+from app.conversations import (
+    ConversationStore,
+    clean_generated_title,
+    conversation_summaries,
+)
 
 
 class FakeCheckpointer:
@@ -82,3 +87,27 @@ def test_deleting_conversation_title_restores_fallback(tmp_path):
         store.close()
 
     assert summaries[0]["title"] == "清淡晚餐推荐"
+
+
+def test_clean_generated_title_removes_model_formatting():
+    assert clean_generated_title("标题：“西红柿鸡蛋减脂午餐。”\n这是解释") == (
+        "西红柿鸡蛋减脂午餐"
+    )
+
+
+def test_runtime_generates_title_without_running_agent():
+    class FakeModel:
+        def __init__(self):
+            self.messages = None
+
+        def invoke(self, messages):
+            self.messages = messages
+            return AIMessage(content="标题：冰箱鸡蛋快手午餐")
+
+    runtime = ChefRuntime.__new__(ChefRuntime)
+    runtime.model = FakeModel()
+
+    title = runtime.generate_conversation_title("冰箱有鸡蛋", "推荐西红柿炒鸡蛋")
+
+    assert title == "冰箱鸡蛋快手午餐"
+    assert len(runtime.model.messages) == 2

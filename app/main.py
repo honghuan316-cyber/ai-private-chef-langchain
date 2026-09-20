@@ -19,7 +19,12 @@ from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from app.chef_core import ChefRuntime
-from app.conversations import ConversationStore, conversation_summaries, public_messages
+from app.conversations import (
+    ConversationStore,
+    conversation_summaries,
+    fallback_title,
+    public_messages,
+)
 from app.knowledge import (
     KnowledgeError,
     KnowledgeService,
@@ -450,6 +455,42 @@ def conversations(request: Request):
     runtime = get_runtime(request)
     store = get_conversation_store(request)
     return {"conversations": conversation_summaries(runtime.checkpointer, store)}
+
+
+@app.post("/api/conversations/{thread_id}/title")
+async def create_conversation_title(thread_id: str, request: Request):
+    if not THREAD_ID_PATTERN.fullmatch(thread_id):
+        raise HTTPException(status_code=422, detail="无效的会话编号。")
+    runtime = get_runtime(request)
+    store = get_conversation_store(request)
+    existing = store.get_title(thread_id)
+    if existing:
+        return {"thread_id": thread_id, "title": existing, "generated": False}
+
+    state = runtime.agent.get_state(make_config(thread_id))
+    messages = public_messages(state.values.get("messages", []))
+    user_text = next(
+        (message["content"] for message in messages if message["role"] == "user"),
+        "",
+    )
+    assistant_text = next(
+        (message["content"] for message in messages if message["role"] == "assistant"),
+        "",
+    )
+    if not user_text or not assistant_text:
+        raise HTTPException(status_code=409, detail="完成首轮回答后才能生成标题。")
+
+    generated = True
+    try:
+        title = await run_in_threadpool(
+            runtime.generate_conversation_title, user_text, assistant_text
+        )
+    except Exception:
+        logger.exception("Conversation title generation failed for %s", thread_id)
+        title = fallback_title(messages)
+        generated = False
+    store.save_title(thread_id, title)
+    return {"thread_id": thread_id, "title": title, "generated": generated}
 
 
 @app.get("/api/history/{thread_id}")
