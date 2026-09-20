@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from app.chef_core import ChefRuntime
+from app.conversations import ConversationStore, conversation_summaries, public_messages
 from app.knowledge import (
     KnowledgeError,
     KnowledgeService,
@@ -47,6 +48,7 @@ DOCUMENT_ID_PATTERN = re.compile(r"^[a-f0-9]{32}$")
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     knowledge = KnowledgeService.from_environment(ROOT)
+    conversations = ConversationStore(ROOT / "data" / "conversations.sqlite")
     if (
         knowledge.ready
         and os.getenv("AUTO_INDEX_SAMPLE_KNOWLEDGE", "true").lower() in {"1", "true", "yes"}
@@ -60,11 +62,13 @@ async def lifespan(application: FastAPI):
             logger.exception("Bundled knowledge samples could not be indexed")
     runtime = ChefRuntime(ROOT, knowledge)
     application.state.knowledge = knowledge
+    application.state.conversations = conversations
     application.state.runtime = runtime
     try:
         yield
     finally:
         runtime.close()
+        conversations.close()
         knowledge.close()
 
 
@@ -118,6 +122,13 @@ def get_runtime(request: Request) -> ChefRuntime:
         detail = getattr(runtime, "initialization_error", None) or "AI Agent 尚未就绪。"
         raise HTTPException(status_code=503, detail=detail)
     return runtime
+
+
+def get_conversation_store(request: Request) -> ConversationStore:
+    conversations = getattr(request.app.state, "conversations", None)
+    if conversations is None:
+        raise HTTPException(status_code=503, detail="会话索引尚未启动。")
+    return conversations
 
 
 def validate_document_id(document_id: str) -> str:
@@ -434,24 +445,20 @@ def chat_stream(request_body: ChatRequest, request: Request):
     )
 
 
+@app.get("/api/conversations")
+def conversations(request: Request):
+    runtime = get_runtime(request)
+    store = get_conversation_store(request)
+    return {"conversations": conversation_summaries(runtime.checkpointer, store)}
+
+
 @app.get("/api/history/{thread_id}")
 def history(thread_id: str, request: Request):
     if not THREAD_ID_PATTERN.fullmatch(thread_id):
         raise HTTPException(status_code=422, detail="无效的会话编号。")
     runtime = get_runtime(request)
     state = runtime.agent.get_state(make_config(thread_id))
-    messages = []
-    for message in state.values.get("messages", []):
-        role = getattr(message, "type", "")
-        if role not in ("human", "ai"):
-            continue
-        if role == "ai" and getattr(message, "tool_calls", None):
-            continue
-        content = content_to_text(getattr(message, "content", ""))
-        if content:
-            messages.append(
-                {"role": "user" if role == "human" else "assistant", "content": content}
-            )
+    messages = public_messages(state.values.get("messages", []))
     return {"thread_id": thread_id, "messages": messages}
 
 
@@ -461,4 +468,5 @@ def clear_history(thread_id: str, request: Request):
         raise HTTPException(status_code=422, detail="无效的会话编号。")
     runtime = get_runtime(request)
     runtime.checkpointer.delete_thread(thread_id)
+    get_conversation_store(request).delete(thread_id)
     return {"thread_id": thread_id, "cleared": True}
