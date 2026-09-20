@@ -22,6 +22,11 @@ const knowledgeDocumentCount = document.querySelector('#knowledgeDocumentCount')
 const knowledgeChunkCount = document.querySelector('#knowledgeChunkCount');
 
 const THREAD_KEY = 'ai-private-chef-thread-id';
+const statusMessages = {
+  auto: '正在分析需求…',
+  knowledge: '正在检索私人知识库…',
+  web: '正在准备网络搜索。',
+};
 let threadId = localStorage.getItem(THREAD_KEY) || crypto.randomUUID();
 let imageUrl = null;
 let previewObjectUrl = null;
@@ -273,13 +278,14 @@ async function sendMessage() {
   }
 
   const requestImageUrl = imageUrl;
+  const selectedSourceMode = sourceMode.value;
   sending = true;
   sendButton.disabled = true;
   sendButton.querySelector('span').textContent = '生成中';
   input.value = '';
   addMessage('user', requestImageUrl ? `📷 ${text}` : text, {plain: true});
   const answerMessage = addMessage('assistant', '正在连接 AI 私厨…', {typing: true, plain: true});
-  setRequestStatus('正在分析需求…');
+  setRequestStatus(statusMessages[selectedSourceMode]);
 
   try {
     const response = await fetch('/api/chat/stream', {
@@ -289,7 +295,7 @@ async function sendMessage() {
         message: text,
         image_url: requestImageUrl,
         thread_id: threadId,
-        source_mode: sourceMode.value,
+        source_mode: selectedSourceMode,
       }),
     });
     if (!response.ok) {
